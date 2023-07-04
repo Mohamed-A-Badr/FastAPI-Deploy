@@ -1,176 +1,194 @@
 from sqlalchemy.orm import Session
-import api.chair_api.db.schemas as schemas
-import db.models as models
-from db.crud import create_hashed_password, verify_password, generate_tokens
+import api.caregiver_api.db.schemas as schemas, db.models as models
 from fastapi import HTTPException, status
 from fastapi_jwt_auth import AuthJWT
+from sqlalchemy import desc
+from fastapi.encoders import jsonable_encoder
+from passlib.context import CryptContext
+from db.crud import create_hashed_password, verify_password, generate_tokens
 
 
-def chair_signup(db: Session, chair: schemas.ChairRegistration):
-    """
-    We use this function to store the new chair in the database
-    We first check if the id that send with the data is already stored in the database or not
-    if it stored we raise an exception if not we stored the chair in our database
-
-    Args:
-        db (Session): The database session that we will use to store the data
-        chair (schemas.ChairRegistration): The data that we want to store in the database (chair_id, password)
-
-    Raises:
-        HTTPException: If the chair_id already exist in the database we raise exception with status code 400
-
-    Returns:
-        Dict : we return a detail tell us that we store the chair data successfully
-    """
-
-    db_chair = (
-        db.query(models.Chair).filter(chair.chair_id == models.Chair.parcode).first()
-    )
-
-    if db_chair is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="This Chair ID is already exist",
-        )
-
-    new_chair = models.Chair(
-        parcode=chair.chair_id,
-        password=create_hashed_password(chair.password),
-        available=True,
-    )
-
-    db.add(new_chair)
-    db.commit()
-    db.refresh(new_chair)
-
-    return {"detail": "Chair register successfully"}
-
-
-def get_chair(db: Session, chair: schemas.ChairRegistration):
-    """
-    This function validate the data that have been sent to login to specific chair
-    First we check if the chair_id is exist in the database then verify and compare
-    the password that send with the request
-    If everything go well then We return a detail tell us the login done successfully
-    if not then return None which means noting found
-
-    Args:
-        db (Session): The database session that we will use to validate the data
-        chair (schemas.ChairRegistration): The data that we want to validate with stored data (chair_id, password)
-
-    Returns:
-        Dict : We return a detail tell us the login done successfully
-        None : Return None when no chair exist in the database with this ID and password
-    """
-
-    current_chair = (
-        db.query(models.Chair).filter(models.Chair.parcode == chair.chair_id).first()
-    )
-
-    if current_chair and verify_password(chair.password, current_chair.password):
-        return {"detail": "Chair login successfully"}
-    return None
-
-
-def chair_login(
-    db: Session, chair: schemas.ChairRegistration, authorize: AuthJWT | None = None
+def signup_caregiver(
+    db: Session, authorize: AuthJWT, caregiver: schemas.SignUpCareGiver
 ):
-    """
-    We use this function to login or access the chair with a specific id
-
-    Args:
-        db (Session): The database session that we will use to validate the data
-        chair (schemas.ChairRegistration): The data that we want to validate with stored data (chair_id, password)
-
-    Raises:
-        HTTPException: If the chair_id not exist in the database we raise an exception with status code 404
-
-    Returns:
-        Dict : We return a detail tell us the login done successfully
-    """
-
-    current_chair = get_chair(db=db, chair=chair)
-    if current_chair is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Chair ID or Password Invalid",
-        )
-    if authorize is None:
-        return True
-
-    return generate_tokens(id=chair.chair_id, authorize=authorize)
-
-
-def store_chair_data(db: Session, data: schemas.GetChairData, chair_id: int):
-    """
-    This fucntion used to store the data coming from sensors but only when the chair is existing in the database
-    if the chair not found we raise an exception, otherwise we store the data
-
-    Args:
-        db (Session): The database session that we will use to validate the data
-        data (schemas.ReadChairData): The sensors' data that we want to store in the database
-
-    Raises:
-        HTTPException: We check if the chair is exist in the database, if not we raise an exception with code 404
-
-    Returns:
-        Dict : we return a detail tell us that the data stored successfully
-    """
-
-    db_chair = db.query(models.Chair).filter(models.Chair.parcode == chair_id).first()
-
-    if db_chair is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="No Chair stored with this ID"
-        )
-
-    new_data = models.SensorData(chair_id=chair_id, **data.dict())
-
-    chair = db.query(models.Chair).filter(chair_id == models.Chair.parcode).first()
-
-    new_data.chair = chair
-
-    db.add(new_data)
-    db.commit()
-    db.refresh(new_data)
-
-    return {"detail": "Data has been stored successfully"}
-
-
-def get_chair_data(chair_id: int, db: Session):
-    """
-    This function used to get the latest data of specific chair that have been stored using the chair_id
-    that send with the request to the route and return the data if the chair_id exist
-
-    Args:
-        chair_id (int): The id of the chair we want to connect to access his data
-        db (Session): The database session that we will use to validate the data
-
-    Raises:
-        HTTPException: If the ID not found we raise an exception with status code 404
-        HTTPException: If there is no Data recorded related to this chair id we raise exception with status code 404
-
-    Returns:
-        Dict: We return the data of the sonsors connected to the chair that have id = chair_id
-    """
-    db_chair = db.query(models.Chair).filter(models.Chair.parcode == chair_id).first()
-
-    if db_chair is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Chair not found"
-        )
-
-    sensor_data = (
-        db.query(models.SensorData)
-        .filter(models.SensorData.chair_id == db_chair.id)
-        .order_by(models.SensorData.id.desc())
+    # Check for mail if it is stored in the db or not
+    db_email = (
+        db.query(models.CareGiver)
+        .filter(models.CareGiver.email == caregiver.email)
         .first()
     )
 
-    if sensor_data is None:
+    # * if the email is already exist raise an HTTPException with status code 400 and a message
+    if db_email is not None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No data recorded for this chair id",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This email is already exist",
+        )
+    db_username = (
+        db.query(models.CareGiver)
+        .filter(models.CareGiver.username == caregiver.username)
+        .first()
+    )
+
+    # * if the username is already exist raise an HTTPException with status code 400 and a message
+    if db_username is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This username is already exist",
         )
 
-    return schemas.GetChairData.from_orm(sensor_data)
+    # db_id = (
+    #     db.query(models.CareGiver).filter(models.CareGiver.id == caregiver.id).first()
+    # )
+
+    # * Create a new instance of CareGiver model to store the caregiver in the database
+
+    # caregiver.id = int(caregiver.id)
+    caregiver.age = int(caregiver.age)
+    caregiver.password = create_hashed_password(caregiver.password)
+
+    new_caregiver = models.CareGiver(**caregiver.dict())
+
+    # * Add the new caregiver to the database session and commit the changes to the database
+    db.add(new_caregiver)
+    db.commit()
+    db.refresh(new_caregiver)
+
+    return generate_tokens(authorize=authorize, id=new_caregiver.id)
+
+
+def get_caregiver(db: Session, authorize: AuthJWT, caregiver: schemas.Login):
+    db_caregiver = (
+        db.query(models.CareGiver)
+        .filter(caregiver.email == models.CareGiver.email)
+        .first()
+    )
+
+    if db_caregiver and verify_password(caregiver.password, db_caregiver.password):
+        return generate_tokens(authorize=authorize, id=db_caregiver.id)
+    return None
+
+
+def login_caregiver(db: Session, authorize: AuthJWT, caregiver: schemas.Login):
+    db_caregiver = get_caregiver(db=db, authorize=authorize, caregiver=caregiver)
+    if db_caregiver is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email or password"
+        )
+    return db_caregiver
+
+
+def caregiver_info(db: Session, caregiver_id: int):
+    caregiver = (
+        db.query(models.CareGiver).filter(models.CareGiver.id == caregiver_id).first()
+    )
+    return schemas.CareGiverInfo.from_orm(caregiver)
+
+
+def update_caregiver(
+    db: Session,
+    authorize: AuthJWT,
+    caregiver_id: int,
+    caregiver: schemas.EditProfileCareGiver,
+):
+    # Check if the caregiver with given id exists in the database
+    db_caregiver = (
+        db.query(models.CareGiver).filter(models.CareGiver.id == caregiver_id).first()
+    )
+    if not db_caregiver:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Caregiver not found"
+        )
+
+    # Update the caregiver's attributes with the new values
+    # May be edited soon
+    db_caregiver.first_name = caregiver.first_name
+    db_caregiver.last_name = caregiver.last_name
+    db_caregiver.username = caregiver.username
+    db_caregiver.email = caregiver.email
+    db_caregiver.password = caregiver.password
+    db_caregiver.age = caregiver.age
+
+    # If the password is provided, hash it and update it in the database
+    if caregiver.password:
+        db_caregiver.password = create_hashed_password(caregiver.password)
+
+    # Commit the changes to the database
+    db.commit()
+    db.refresh(db_caregiver)
+
+    return db_caregiver
+
+
+def get_notification(db: Session, caregiver_id: int):
+    notifications = (
+        db.query(models.Notification)
+        .filter(caregiver_id == models.Notification.caregiver_id)
+        .order_by(desc(models.Notification.date))
+        .all()
+    )
+
+    if len(notifications) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No notification found"
+        )
+
+    for notification in notifications:
+        chair = db.query(models.Chair).get(notification.chair_id)
+        notification.chair_id = chair.parcode
+
+    return notifications
+
+
+def create_notification(
+    db: Session, notification: schemas.StoreNotification, caregiver_id: int
+):
+    chair = (
+        db.query(models.Chair)
+        .filter(notification.chair_id == models.Chair.parcode)
+        .first()
+    )
+
+    if chair is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Chair Not Found"
+        )
+
+    caregiver = (
+        db.query(models.CareGiver).filter(caregiver_id == models.CareGiver.id).first()
+    )
+
+    if caregiver is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Chair Not Found"
+        )
+
+    new_notification = models.Notification(
+        sensor=notification.sensor,
+        value=notification.value,
+        chair_id=chair.id,
+        caregiver_id=caregiver.id,
+    )
+
+    db.add(new_notification)
+    db.commit()
+    db.refresh(new_notification)
+
+    return {"details": "Notifications stored successfully"}
+
+
+def delete_notification(db: Session, notification_id: int):
+    wanted_notification = (
+        db.query(models.Notification)
+        .filter(models.Notification.id == notification_id)
+        .first()
+    )
+    if wanted_notification is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
+        )
+
+    db.delete(wanted_notification)
+    db.commit()
+
+    return {"details": "Notification deleted successfully"}
