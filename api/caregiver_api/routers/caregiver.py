@@ -4,7 +4,7 @@ from fastapi_jwt_auth import AuthJWT
 from auth.schema import Token
 import db.database as database, api.caregiver_api.db.schemas as schemas, api.caregiver_api.db.crud as crud
 from db.database import get_db
-from db.models import Patient , CareGiver
+from db.models import Patient, CareGiver
 
 router = APIRouter(tags=["caregiver"], prefix="/caregiver")
 
@@ -57,10 +57,10 @@ async def update(
         db=db, authorize=authorize, caregiver_id=caregiver_id, caregiver=caregiver
     )
 
+
 @router.put("/assign-patients")
 async def assign_patients(
-    assignment: schemas.CareGiverAssignment,
-    db: Session = Depends(get_db)
+    assignment: schemas.CareGiverAssignment, db: Session = Depends(get_db)
 ):
     # first we need to get the the caregiver to assign this one to one or more patients
     caregiver = db.query(CareGiver).filter_by(id=assignment.caregiver_id).first()
@@ -69,7 +69,7 @@ async def assign_patients(
     if not caregiver:
         raise HTTPException(status_code=404, detail="Caregiver not found")
 
-    # get the patient by id 
+    # get the patient by id
     patients = db.query(Patient).filter(Patient.id.in_(assignment.patient_ids)).all()
 
     # make sure all the patients exist
@@ -82,17 +82,56 @@ async def assign_patients(
 
     return {"message": "Patients assigned successfully"}
 
+
 @router.get("/assigned-patients")
 def list_assigned_patients(db: Session = Depends(get_db)):
     patients = db.query(Patient).all()
     assigned_patients = []
     for patient in patients:
         for caregiver in patient.caregivers:
-            assigned_patients.append({
-                "caregiver_id": caregiver.id,
-                "caregiver_name": caregiver.username,
-                "patient_id": patient.id,
-                "patient_name": patient.first_name
-            })
+            assigned_patients.append(
+                {
+                    "caregiver_id": caregiver.id,
+                    "caregiver_name": caregiver.username,
+                    "patient_id": patient.id,
+                    "patient_name": patient.first_name,
+                }
+            )
 
     return {"assigned_patients": assigned_patients}
+
+
+@router.post("/notification", status_code=status.HTTP_201_CREATED)
+async def post_notification(
+    notification: schemas.StoreNotification,
+    db: Session = Depends(get_db),
+    authorize: AuthJWT = Depends(),
+):
+    try:
+        authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Token"
+        )
+    current_user_id = authorize.get_jwt_subject()
+    return crud.create_notification(
+        db=db, notification=notification, caregiver_id=current_user_id
+    )
+
+
+@router.get(
+    "/notification",
+    status_code=status.HTTP_200_OK,
+    response_model=list[schemas.GetNotification],
+)
+async def retrieve_notification(
+    db: Session = Depends(get_db), authorize: AuthJWT = Depends()
+):
+    try:
+        authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Token"
+        )
+    current_user_id = authorize.get_jwt_subject()
+    return crud.get_notification(db=db, caregiver_id=current_user_id)
