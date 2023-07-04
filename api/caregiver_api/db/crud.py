@@ -128,7 +128,7 @@ def get_notification(db: Session, caregiver_id: int):
         .all()
     )
 
-    if notifications is None:
+    if len(notifications) == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="No notification found"
         )
@@ -175,3 +175,20 @@ def create_notification(
     db.refresh(new_notification)
 
     return new_notification
+
+
+def delete_notification(db: Session, notification_id: int):
+    wanted_notification = (
+        db.query(models.Notification)
+        .filter(models.Notification.id == notification_id)
+        .first()
+    )
+    if wanted_notification is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found"
+        )
+
+    db.delete(wanted_notification)
+    db.commit()
+
+    return {"details": "Notification deleted successfully"}
