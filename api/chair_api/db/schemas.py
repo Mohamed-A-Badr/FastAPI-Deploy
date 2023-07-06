@@ -64,3 +64,16 @@ class GetChairLocation(BaseModel):
                 "longitude": 47.154789,
             }
         }
+
+
+class StoreChairLocation(GetChairLocation):
+    chair_id: int
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "latitude": 12.123456,
+                "longitude": 47.154789,
+                "chair_id": 55,
+            }
+        }
