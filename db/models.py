@@ -15,6 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from db.database import Base
+from datetime import datetime
 
 
 # this table is a "junction table" to link between two tables (patient,caregiver)
@@ -27,14 +28,6 @@ association_table = Table(
     ),
     Column("caregiver", ForeignKey("caregiver.id")),
 )
-# # this table is a "junction table" to link between two tables (chair,caregiver)
-# linking_table = Table(
-#     "linking",  # Table Name
-#     Base.metadata,
-#     Column(
-#         "chair", ForeignKey("chair.id"), Column("caregiver", ForeignKey("caregiver.id"))
-#     ),
-# )
 
 
 class Chair(Base):
@@ -73,8 +66,7 @@ class SensorData(Base):
     temperature = Column(Float, nullable=False)
     pulse_rate = Column(Float, nullable=False)
     oximeter = Column(Float, nullable=False)
-    created_date = Column(Date, default=func.current_date())
-    created_time = Column(Time, server_default=func.current_time())
+    created_date = Column(DateTime, default=datetime.utcnow())
 
     # ? relationship with chair
     chair_id = Column(Integer, ForeignKey("chair.id"), index=True)
@@ -117,14 +109,6 @@ class CareGiver(Base):
     patients = relationship(
         "Patient", secondary=association_table, back_populates="caregivers"
     )
-    # caregiverphone_id = Column(
-    #     Integer,
-    #     ForeignKey("caregiverphone.id"),
-    #     index=True,
-    # )
-    # caregiverphone = relationship(
-    #     "CareGiverPhone", back_populates="caregiver", foreign_keys=[caregiverphone_id]
-    # )
     phones = relationship("CareGiverPhone", back_populates="caregiver")
     notification = relationship(
         "Notification", uselist=False, back_populates="caregiver"

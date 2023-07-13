@@ -7,14 +7,12 @@ from sqlalchemy import create_engine
 # TODO : Thanks Bro <3
 
 # RDS Database
-# SQLALCHEMY_DATABASE_URL = "postgresql://robobrain:graduation@gp.cdotyt702xan.eu-north-1.rds.amazonaws.com/graduation_project"
+SQLALCHEMY_DATABASE_URL = "postgresql://robobrain:graduation@gp.cdotyt702xan.eu-north-1.rds.amazonaws.com/graduation_project"
 
 # Local Database
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:manga2023@localhost/db1"
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:mypassword@localhost/GP-Database"
 
-# Heroku Database
-SQLALCHEMY_DATABASE_URL = "postgresql://ketanufpwehcfz:adbb1aa74a7a7cba016990693fddb543f73f64b64b38376a551a6d1cf4824469@ec2-54-89-111-237.compute-1.amazonaws.com:5432/d47tgimvllcd02"
 
 # * Create the engine that will be used to connect to the database
 engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True)
