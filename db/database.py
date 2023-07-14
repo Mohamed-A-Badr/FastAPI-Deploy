@@ -7,11 +7,11 @@ from sqlalchemy import create_engine
 # TODO : Thanks Bro <3
 
 # RDS Database
-SQLALCHEMY_DATABASE_URL = "postgresql://robobrain:graduation@gp.cdotyt702xan.eu-north-1.rds.amazonaws.com/graduation_project"
+# SQLALCHEMY_DATABASE_URL = "postgresql://robobrain:graduation@gp.cdotyt702xan.eu-north-1.rds.amazonaws.com/graduation_project"
 
 # Local Database
 # SQLALCHEMY_DATABASE_URL = "postgresql://postgres:manga2023@localhost/db1"
-# SQLALCHEMY_DATABASE_URL = "postgresql://postgres:mypassword@localhost/GP-Database"
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:mypassword@localhost/GP-Database"
 
 
 # * Create the engine that will be used to connect to the database

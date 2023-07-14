@@ -4,6 +4,7 @@ import db.models as models
 from db.crud import create_hashed_password, verify_password, generate_tokens
 from fastapi import HTTPException, status
 from fastapi_jwt_auth import AuthJWT
+from collections import deque, defaultdict
 
 
 def chair_signup(db: Session, chair: schemas.ChairRegistration):
@@ -22,7 +23,6 @@ def chair_signup(db: Session, chair: schemas.ChairRegistration):
     Returns:
         Dict : we return a detail tell us that we store the chair data successfully
     """
-
     db_chair = (
         db.query(models.Chair).filter(chair.chair_id == models.Chair.parcode).first()
     )
@@ -101,6 +101,15 @@ def chair_login(
     return generate_tokens(id=chair.chair_id, authorize=authorize)
 
 
+data_queues = defaultdict(
+    lambda: {
+        "temperature": deque(),
+        "pulse_rate": deque(),
+        "oximeter": deque(),
+    }
+)
+
+
 def store_chair_data(db: Session, data: schemas.GetChairData, chair_id: int):
     """
     This fucntion used to store the data coming from sensors but only when the chair is existing in the database
@@ -117,24 +126,60 @@ def store_chair_data(db: Session, data: schemas.GetChairData, chair_id: int):
         Dict : we return a detail tell us that the data stored successfully
     """
 
-    db_chair = db.query(models.Chair).filter(models.Chair.parcode == chair_id).first()
+    queues = data_queues[chair_id]
+    queue_temperature = queues["temperature"]
+    queue_pulse = queues["pulse_rate"]
+    queue_oximeter = queues["oximeter"]
 
-    if db_chair is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="No Chair stored with this ID"
+    queue_temperature.append(data.temperature)
+    queue_pulse.append(data.pulse_rate)
+    queue_oximeter.append(data.oximeter)
+
+    if (
+        len(queue_pulse) == 10
+        or len(queue_temperature) == 10
+        or len(queue_oximeter) == 10
+    ):
+        # The average of the sensors
+        temperature_avg = sum(queue_temperature) / len(queue_temperature)
+        pulse_avg = sum(queue_pulse) / len(queue_pulse)
+        oximeter_avg = sum(queue_oximeter) / len(queue_oximeter)
+
+        # Get the chair
+        db_chair = (
+            db.query(models.Chair).filter(models.Chair.parcode == chair_id).first()
         )
 
-    new_data = models.SensorData(chair_id=chair_id, **data.dict())
+        # Check the chair exist
+        if db_chair is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No Chair stored with this ID",
+            )
 
-    chair = db.query(models.Chair).filter(chair_id == models.Chair.parcode).first()
+        # Save the new data
+        new_data = models.SensorData(
+            chair_id=chair_id,
+            temperature=temperature_avg,
+            pulse_rate=pulse_avg,
+            oximeter=oximeter_avg,
+        )
 
-    new_data.chair = chair
+        chair = db.query(models.Chair).filter(chair_id == models.Chair.parcode).first()
 
-    db.add(new_data)
-    db.commit()
-    db.refresh(new_data)
+        new_data.chair = chair
 
-    return {"detail": "Data has been stored successfully"}
+        db.add(new_data)
+        db.commit()
+        db.refresh(new_data)
+
+        queue_temperature.popleft()
+        queue_pulse.popleft()
+        queue_oximeter.popleft()
+
+        return {"detail": "Data has been stored successfully"}
+    else:
+        return {"detail": "Data received"}
 
 
 def get_chair_data(chair_id: int, db: Session):
