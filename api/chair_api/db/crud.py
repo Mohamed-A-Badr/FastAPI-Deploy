@@ -5,6 +5,7 @@ from db.crud import create_hashed_password, verify_password, generate_tokens
 from fastapi import HTTPException, status
 from fastapi_jwt_auth import AuthJWT
 from collections import deque, defaultdict
+import requests
 
 
 def chair_signup(db: Session, chair: schemas.ChairRegistration):
@@ -110,6 +111,35 @@ data_queues = defaultdict(
 )
 
 
+# FCM code block
+FCM_URL = "https://fcm.googleapis.com/fcm/send"
+FCM_SERVER_KEY = "AAAAXUQrMc0:APA91bE_xkl6TVyTbAQ9gZlFXlzXl8up3a9j0zLof9fWznPOv0ni8oWmwkP_HZM7QMRwQPRevtJAQADSGp91Zc_3dIClagkFaK98GuSGKITgfSObqcA-cYnnTm0PkAK4ciEF_ZhjQYqw"
+
+
+def send_notification_fcm(sensor: str, message: str):
+    device_token = ""
+    payload = {
+        "to": device_token,
+        "notification": {
+            "title": sensor,
+            "body": message,
+        },
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "key=" + FCM_SERVER_KEY,
+    }
+
+    response = requests.post(FCM_URL, headers=headers, json=payload)
+    if response.status_code == requests.codes.ok:
+        print("FCM notification sent successfully")
+    else:
+        print("Failed to send FCM notification. Error: ", response.text)
+
+
+# End of the block
+
+
 def store_chair_data(db: Session, data: schemas.GetChairData, chair_id: int):
     """
     This fucntion used to store the data coming from sensors but only when the chair is existing in the database
@@ -169,13 +199,13 @@ def store_chair_data(db: Session, data: schemas.GetChairData, chair_id: int):
 
         new_data.chair = chair
 
-        db.add(new_data)
-        db.commit()
-        db.refresh(new_data)
-
         queue_temperature.popleft()
         queue_pulse.popleft()
         queue_oximeter.popleft()
+
+        db.add(new_data)
+        db.commit()
+        db.refresh(new_data)
 
         return {"detail": "Data has been stored successfully"}
     else:

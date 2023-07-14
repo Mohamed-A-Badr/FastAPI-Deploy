@@ -10,7 +10,7 @@ async def send_request():
     async with httpx.AsyncClient() as client:
         headers = {
             "Content-Type": "application/json",
-            "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjU1LCJpYXQiOjE2ODkzNTM5NjMsIm5iZiI6MTY4OTM1Mzk2MywianRpIjoiMjE0ODc3ZjMtNDllMS00MzIzLThkNzAtNDZiM2QzYWNjZTU3IiwiZXhwIjoxNzIwODg5OTYzLCJ0eXBlIjoiYWNjZXNzIiwiZnJlc2giOmZhbHNlfQ.MjjtCG7ii9G9ecVCTjbxd-T4oAFAgY84y-CmaRACC-I",
+            "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOjMzLCJpYXQiOjE2ODkzNTE5NTEsIm5iZiI6MTY4OTM1MTk1MSwianRpIjoiYWZmZDU4YTQtZWE0ZC00YjUxLTgyMWUtYzkzY2UyY2VjNGE4IiwiZXhwIjoxNzIwODg3OTUxLCJ0eXBlIjoiYWNjZXNzIiwiZnJlc2giOmZhbHNlfQ.YFEO5b_3z0PZuxMHm6t4dT4xfdXTRXZ68hV-jpZVQjA",
         }
         payload = {
             "temperature": temperature,
