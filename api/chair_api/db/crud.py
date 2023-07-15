@@ -171,9 +171,9 @@ def store_chair_data(db: Session, data: schemas.GetChairData, chair_id: int):
         or len(queue_oximeter) == 10
     ):
         # The average of the sensors
-        temperature_avg = sum(queue_temperature) / len(queue_temperature)
-        pulse_avg = sum(queue_pulse) / len(queue_pulse)
-        oximeter_avg = sum(queue_oximeter) / len(queue_oximeter)
+        temperature_avg = round(sum(queue_temperature) / len(queue_temperature), 2)
+        pulse_avg = round(sum(queue_pulse) / len(queue_pulse), 2)
+        oximeter_avg = round(sum(queue_oximeter) / len(queue_oximeter), 2)
 
         # Get the chair
         db_chair = (
