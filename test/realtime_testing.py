@@ -19,7 +19,7 @@ async def send_request():
         }
         # http://13.48.27.223:8000/
         response = await client.post(
-            "http://127.0.0.1:8000/chair/data", headers=headers, json=payload
+            "http://13.48.27.223:8000/chair/data", headers=headers, json=payload
         )
         print(response.text)
 
